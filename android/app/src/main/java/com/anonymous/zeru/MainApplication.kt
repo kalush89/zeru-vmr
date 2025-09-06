@@ -1,4 +1,4 @@
-package com.anonymous.zeruvmr
+package com.anonymous.zeru
 
 import android.app.Application
 import android.content.res.Configuration

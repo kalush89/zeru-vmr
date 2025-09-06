@@ -1,4 +1,4 @@
-package com.anonymous.zeruvmr
+package com.anonymous.zeru
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

@@ -1,178 +1,295 @@
-import {
-  useAbstraxionAccount,
-  useAbstraxionSigningClient,
-} from "@burnt-labs/abstraxion-react-native";
-import { useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useAbstraxionAccount, useAbstraxionClient, useAbstraxionSigningClient } from "@burnt-labs/abstraxion-react-native";
+import React, { useState } from "react";
+import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
+import LoadingOverlay from "../../components/LoadingOverlay";
+import MessageCard from "../../components/MessageCard";
+import { useDocuStore } from "../../hooks/useDocuStore";
+import HealthcareWorkerDashboard from "../healthWorkerDashboard";
+import PatientDashboard from "../patientDashboard";
+
+
+const DOCUSTORE_CONTRACT_ADDRESS = process.env.EXPO_PUBLIC_DOCUSTORE_CONTRACT_ADDRESS;
 
 export default function Index() {
-  const {
-    data: account,
-    logout,
-    login,
-    isConnected,
-    isConnecting,
-  } = useAbstraxionAccount();
-  const { client, signArb } = useAbstraxionSigningClient();
+  const { data: account, login, logout, isConnected } = useAbstraxionAccount();
+  const { client: signingClient } = useAbstraxionSigningClient();
+  const { client: queryClient } = useAbstraxionClient();
 
-  const [signArbResponse, setSignArbResponse] = useState("");
-  const [txHash, setTxHash] = useState("");
-  const [loadingInstantiate, setLoadingInstantiate] = useState(false);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleInstantiate() {
-    setLoadingInstantiate(true);
-    try {
-      const msg = {
-        type_urls: ["/cosmwasm.wasm.v1.MsgInstantiateContract"],
-        grant_configs: [
-          {
-            description: "Ability to instantiate contracts",
-            optional: false,
-            authorization: {
-              type_url: "/cosmos.authz.v1beta1.GenericAuthorization",
-              value: "CigvY29zbXdhc20ud2FzbS52MS5Nc2dJbnN0YW50aWF0ZUNvbnRyYWN0",
-            },
-          },
-        ],
-        fee_config: {
-          description: "Sample fee config for testnet-2",
-          allowance: {
-            type_url: "/cosmos.feegrant.v1beta1.BasicAllowance",
-            value: "Cg8KBXV4aW9uEgY1MDAwMDA=",
-          },
-        },
-        admin: account.bech32Address,
-      };
+  const showMessage = (msg: string) => {
+    setMessage(msg);
+    setTimeout(() => setMessage(""), 5000);
+  };
 
-      const instantiateRes = await client?.instantiate(
-        account.bech32Address,
-        33,
-        msg,
-        "instantiate on expo demo",
-        "auto"
-      );
+  const { userRole, linkedUUID, patientRecords, setLinkedUUID, setPatientRecords } =
+    useDocuStore(queryClient!, account, DOCUSTORE_CONTRACT_ADDRESS, showMessage);
 
-      if (!instantiateRes) {
-        throw new Error("Instantiate failed.");
-      }
+   const signingClientWrapper = {
+    execute: (address: string, contract: string, msg: any, type: string) => {
+      // The `fee` parameter is required by the original method, so we provide 'auto'.
+      const fee = 'auto';
+      // Now you can safely call `signingClient.execute` because it's not undefined.
+      return signingClient!.execute(address, contract, msg, fee);
+    },
+  };
 
-      setTxHash(instantiateRes.transactionHash);
-    } catch (error) {
-      Alert.alert("Error", (error as Error).message);
-    } finally {
-      setLoadingInstantiate(false);
+  const setLinkedUUIDWrapper = (uuid: string | undefined) => {
+    // Only call setLinkedUUID if the uuid is a string
+    if (uuid) {
+      setLinkedUUID(uuid);
     }
-  }
-
-  async function handleSign(): Promise<void> {
-    if (client?.granteeAddress) {
-      const response = await signArb?.(
-        client.granteeAddress,
-        "abstraxion challenge"
-      );
-      if (response) setSignArbResponse(response);
-    }
-  }
-
-  function handleLogout() {
-    logout();
-    setSignArbResponse("");
-    setTxHash("");
-  }
+};
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Zeru - Verifiable Medical Records</Text>
-      {isConnected ? (
-        <>
-          <TouchableOpacity
-            onPress={handleInstantiate}
-            style={styles.button}
-            disabled={loadingInstantiate}
-          >
-            <Text style={styles.buttonText}>
-              {loadingInstantiate ? "Loading..." : "Sample instantiate"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleSign} style={styles.button}>
-            <Text style={styles.buttonText}>Sign Arb</Text>
-          </TouchableOpacity>
-        </>
-      ) : null}
-      {isConnected ? (
-        <TouchableOpacity onPress={handleLogout} style={styles.button}>
-          <Text style={styles.buttonText}>Logout</Text>
-        </TouchableOpacity>
+      <MessageCard message={message} />
+
+      {isConnected && signingClientWrapper && queryClient && DOCUSTORE_CONTRACT_ADDRESS ? (
+        userRole === "healthcare_worker" ? (
+          <HealthcareWorkerDashboard {...{ account, signingClient: signingClientWrapper, queryClient, setLoading, showMessage, contractAddress: DOCUSTORE_CONTRACT_ADDRESS }} />
+        ) : (
+          <PatientDashboard {...{ account, signingClient: signingClientWrapper, queryClient, linkedUUID, setLinkedUUID : setLinkedUUIDWrapper, patientRecords, setPatientRecords, setLoading, showMessage, contractAddress: DOCUSTORE_CONTRACT_ADDRESS }} />
+        )
       ) : (
-        <TouchableOpacity
-          onPress={login}
-          style={[styles.button, isConnecting && styles.disabledButton]}
-          disabled={isConnecting}
-        >
-          <Text style={styles.buttonText}>
-            {isConnecting ? "Connecting..." : "Login"}
-          </Text>
+        <TouchableOpacity onPress={login} style={styles.button}>
+          <Text style={styles.buttonText}>Tap to login with Abstraxion</Text>
         </TouchableOpacity>
       )}
-      {signArbResponse || txHash ? (
-        <View style={styles.card}>
-          {signArbResponse ? (
-            <Text style={styles.responseText}>{signArbResponse}</Text>
-          ) : null}
-          {txHash ? <Text style={styles.responseText}>{txHash}</Text> : null}
-        </View>
-      ) : null}
-    </View>
+
+      <LoadingOverlay loading={loading} />
+    </ScrollView>
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: "#f0f0f0",
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 20,
+    marginBottom: 30,
     color: "#333",
+    textAlign: "center",
   },
-  button: {
-    marginVertical: 10,
+  messageCard: {
+    backgroundColor: "#e0f7fa",
     padding: 15,
-    borderRadius: 5,
-    backgroundColor: "#2196F3",
-    width: "80%",
+    borderRadius: 10,
+    marginBottom: 20,
+    width: "90%",
     alignItems: "center",
+    borderColor: "#00bcd4",
+    borderWidth: 1,
   },
-  buttonText: {
-    color: "#fff",
+  messageText: {
+    color: "#006064",
     fontSize: 16,
+    textAlign: "center",
   },
   card: {
     backgroundColor: "#fff",
-    padding: 15,
+    padding: 20,
     borderRadius: 10,
     marginTop: 20,
     width: "90%",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
+    alignItems: "center",
+    marginBottom: 20,
   },
   responseText: {
     color: "#000",
-    marginTop: 10,
+    marginTop: 5,
     fontSize: 16,
+    textAlign: "center",
+  },
+  section: {
+    width: "90%",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: "#424242",
+    textAlign: "center",
+  },
+  subSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 10,
+    color: "#616161",
+  },
+  label: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 5,
+    textAlign: "center",
+  },
+  input: {
+    width: "100%",
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    marginBottom: 15,
+    fontSize: 16,
+    color: "#333",
+    backgroundColor: "#fdfdfd",
+  },
+  inlineInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 15,
+  },
+  halfInput: {
+    width: '45%',
+    marginBottom: 0, // Override default margin for inline
+  },
+  slash: {
+    fontSize: 20,
+    color: '#555',
+    marginHorizontal: 5,
+  },
+  button: {
+    marginVertical: 10,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: "#2196F3",
+    width: "80%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  logoutButton: {
+    marginVertical: 20,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: "#F44336",
+    width: "80%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
   },
   disabledButton: {
     backgroundColor: "#B0BEC5",
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  toggleButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    marginHorizontal: 5,
+    backgroundColor: '#e0e0e0',
+  },
+  toggleButtonActive: {
+    backgroundColor: '#2196F3',
+  },
+  toggleButtonText: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  toggleButtonTextActive: {
+    color: '#fff',
+  },
+  recordsContainer: {
+    marginTop: 20,
+    width: "100%",
+    padding: 15,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    borderColor: "#e0e0e0",
+    borderWidth: 1,
+  },
+  recordItem: {
+    backgroundColor: "#ffffff",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderColor: "#e0e0e0",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  recordText: {
+    fontSize: 14,
+    color: "#424242",
+    marginBottom: 3,
+  },
+  recordTypeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#006064',
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingBottom: 5,
+  },
+  globalLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    minWidth: 150,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
   },
 });
