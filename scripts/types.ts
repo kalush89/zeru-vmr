@@ -49,6 +49,7 @@ export interface HealthRecords { // Renamed from PatientRecord to match your imp
   created_by_hw_address: string; // Blockchain address of the HW who created the record
   created_by_hw_name: string; // Name of the HW who created the record
   created_by_hw_facility: string; // Facility where the record was created
+  created_by_hw_is_license_verified?: boolean; // True if the HW's license was verified at record creation
   timestamp: string; // ISO 8601 string of when the record was created
 }
 

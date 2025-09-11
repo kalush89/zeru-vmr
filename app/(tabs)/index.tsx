@@ -1,9 +1,10 @@
+import LoadingOverlay from "@/components/LoadingOverlay";
+import MessageCard from "@/components/MessageCard";
+import ShowMessage from "@/components/ShowMessageComponent"; // Import the new component
+import { useDocuStore } from "@/hooks/useDocuStore";
 import { useAbstraxionAccount, useAbstraxionClient, useAbstraxionSigningClient } from "@burnt-labs/abstraxion-react-native";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import MessageCard from "../../components/MessageCard";
-import { useDocuStore } from "../../hooks/useDocuStore";
 import HealthcareWorkerDashboard from "../healthWorkerDashboard";
 import PatientDashboard from "../patientDashboard";
 
@@ -18,9 +19,9 @@ export default function Index() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // The showMessage function is now handled by the ShowMessage component
   const showMessage = (msg: string) => {
     setMessage(msg);
-    setTimeout(() => setMessage(""), 5000);
   };
 
   const { userRole, linkedUUID, patientRecords, setLinkedUUID, setPatientRecords } =
@@ -46,12 +47,13 @@ export default function Index() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Zeru - Verifiable Medical Records</Text>
       <MessageCard message={message} />
+      <ShowMessage message={message} setMessage={setMessage} />
 
       {isConnected && signingClientWrapper && queryClient && DOCUSTORE_CONTRACT_ADDRESS ? (
         userRole === "healthcare_worker" ? (
-          <HealthcareWorkerDashboard {...{ account, signingClient: signingClientWrapper, queryClient, setLoading, showMessage, contractAddress: DOCUSTORE_CONTRACT_ADDRESS }} />
+          <HealthcareWorkerDashboard {...{ account, signingClient: signingClientWrapper, queryClient, setLoading, showMessage: (msg: string, type?: "success" | "error" | "info") => setMessage(msg), contractAddress: DOCUSTORE_CONTRACT_ADDRESS }} />
         ) : (
-          <PatientDashboard {...{ account, signingClient: signingClientWrapper, queryClient, linkedUUID, setLinkedUUID : setLinkedUUIDWrapper, patientRecords, setPatientRecords, setLoading, showMessage, contractAddress: DOCUSTORE_CONTRACT_ADDRESS }} />
+          <PatientDashboard {...{ account, signingClient: signingClientWrapper, queryClient, linkedUUID, setLinkedUUID : setLinkedUUIDWrapper, patientRecords, setPatientRecords, setLoading, showMessage: (msg: string, type?: "success" | "error" | "info") => setMessage(msg), contractAddress: DOCUSTORE_CONTRACT_ADDRESS }} />
         )
       ) : (
         <TouchableOpacity onPress={login} style={styles.button}>
