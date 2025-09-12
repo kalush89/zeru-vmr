@@ -2,6 +2,7 @@ import ReclaimComponent from "@/components/ReclaimComponent";
 import { retryOperation } from "@/scripts/retry";
 import { DocuStoreSingleDocumentResponse, HealthRecords, HWProfile } from "@/scripts/types";
 import { AbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
+import { Picker } from '@react-native-picker/picker';
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { v4 as uuidv4 } from "uuid";
@@ -252,7 +253,7 @@ export default function HealthcareWorkerDashboard({
             <Text style={styles.verificationPromptText}>
               Your professional license (as a {hwProfile.job_title}) is not yet verified. You must complete this step to create patient records.
             </Text>
-            <ReclaimComponent showMessage={showMessage} />
+            <ReclaimComponent showMessage={showMessage} healthWorkerRole={hwProfile.job_title as "doctor" | "community_health_practitioner" | "nurse_midwife"} />
           </View>
         ) : (
           // --- Record Creation Form (only visible if license is verified) ---
@@ -290,12 +291,17 @@ export default function HealthcareWorkerDashboard({
               value={formData.patient_lastname}
               onChangeText={(t) => handleInputChange('patient_lastname', t)}
             />
-            <TextInput
-              style={styles.input}
-              placeholder="Patient Sex (e.g., Female)"
-              value={formData.patient_sex}
-              onChangeText={(t) => handleInputChange('patient_sex', t)}
-            />
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.patient_sex}
+                onValueChange={(itemValue) => handleInputChange('patient_sex', itemValue)}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Patient Sex" value="" />
+                <Picker.Item label="Female" value="Female" />
+                <Picker.Item label="Male" value="Male" />
+              </Picker>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Patient Date of Birth (YYYY-MM-DD)"
@@ -401,6 +407,18 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   input: { borderWidth: 1, borderColor: "#ccc", padding: 12, borderRadius: 8, marginBottom: 10, fontSize: 16 },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    marginBottom: 10,
+    justifyContent: 'center',
+    height: 50, // Adjust height as needed
+  },
+  picker: {
+    height: 50, // Ensure picker itself takes full height of its container
+    width: '100%',
+  },
   inlineInputs: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   halfInput: { flex: 1, marginRight: 5 },
   slash: { marginHorizontal: 5, fontSize: 18, fontWeight: 'bold', color: '#555' },

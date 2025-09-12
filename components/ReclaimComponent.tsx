@@ -13,7 +13,9 @@ const RUM_CONTRACT_ADDRESS = process.env.EXPO_PUBLIC_RUM_CONTRACT_ADDRESS ?? "";
 const reclaimConfig = {
   appId: process.env.EXPO_PUBLIC_RECLAIM_APP_ID ?? "",
   appSecret: process.env.EXPO_PUBLIC_RECLAIM_APP_SECRET ?? "",
-  providerId: process.env.EXPO_PUBLIC_RECLAIM_PROVIDER_ID ?? "",
+  doctorProviderId: process.env.EXPO_PUBLIC_DOCTOR_RECLAIM_PROVIDER_ID ?? "",
+  communityHealthPractitionerProviderId: process.env.EXPO_PUBLIC_CHP_RECLAIM_PROVIDER_ID ?? "",
+  nurseMidwifeProviderId: process.env.EXPO_PUBLIC_NURSE_MIDWIFE_RECLAIM_PROVIDER_ID ?? "",
 };
 
 type Status =
@@ -99,9 +101,10 @@ const styles = StyleSheet.create({
 
 interface ReclaimComponentProps {
   showMessage: (message: string, type?: "success" | "error" | "info") => void;
+  healthWorkerRole: "doctor" | "community_health_practitioner" | "nurse_midwife";
 }
 
-export default function ReclaimComponent({ showMessage }: ReclaimComponentProps) {
+export default function ReclaimComponent({ showMessage, healthWorkerRole }: ReclaimComponentProps) {
   const { client } = useAbstraxionSigningClient();
   const {
     data: account,
@@ -170,10 +173,25 @@ export default function ReclaimComponent({ showMessage }: ReclaimComponentProps)
 
     try {
       // Step 1: Verify with Reclaim
+      let providerId: string;
+      switch (healthWorkerRole) {
+        case "doctor":
+          providerId = reclaimConfig.doctorProviderId;
+          break;
+        case "community_health_practitioner":
+          providerId = reclaimConfig.communityHealthPractitionerProviderId;
+          break;
+        case "nurse_midwife":
+          providerId = reclaimConfig.nurseMidwifeProviderId;
+          break;
+        default:
+          throw new Error("Invalid healthWorkerRole provided");
+      }
+
       const verificationResult = await reclaimVerification.startVerification({
         appId: reclaimConfig.appId,
         secret: reclaimConfig.appSecret,
-        providerId: reclaimConfig.providerId,
+        providerId: providerId,
       });
 
       console.log("Verification result:", verificationResult);
